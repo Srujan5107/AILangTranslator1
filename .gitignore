@@ -1,0 +1,22 @@
+# Ignore Git installation folder
+Git/
+
+# Python build artifacts
+build/
+dist/
+*.spec
+
+# Audio / runtime generated files
+*.mp3
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env
+
+# OS files
+Thumbs.db
+.DS_Store
