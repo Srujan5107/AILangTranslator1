@@ -51,6 +51,7 @@ with col2:
     st.subheader("Translated Output")
     output_container = st.container(border=True)
     output_box = output_container.empty()
+    output_text = st.text_area("", height=200, placeholder="Translated Text.", key="output")
 
 # ---------------- Language Selection ----------------
 st.markdown("---")
