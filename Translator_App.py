@@ -75,7 +75,7 @@ if "translated_text" not in st.session_state:
     st.session_state.translated_text = ""
 
 # ---------------- Main UI ----------------
-st.markdown("<h1 style='text-align:center;'>🌐 Language Translator</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>🌐 AI Language Translator</h1>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
