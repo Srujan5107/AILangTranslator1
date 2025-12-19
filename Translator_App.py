@@ -5,93 +5,119 @@ import os
 from gtts import gTTS
 from deep_translator import GoogleTranslator
 from deep_translator.constants import GOOGLE_LANGUAGES_TO_CODES
-from streamlit_lottie import st_lottie
 
 # ---------------- Page Config ----------------
 st.set_page_config(page_title="Language Translator", layout="wide")
 
-# ---------------- CSS Animations ----------------
+# ---------------- Custom CSS for UI ----------------
 st.markdown("""
 <style>
-.fade-in { animation: fadeIn 1.5s ease-in-out; }
-@keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
-.slide-up { animation: slideUp 0.5s ease; }
-@keyframes slideUp { from {transform: translateY(10px); opacity:0;} to {transform: translateY(0); opacity:1;} }
+    /* Ensure input and output boxes have equal height and styling */
+    .stTextArea textarea {
+        height: 250px !important;
+    }
+    .output-container {
+        border: 1px solid #dcdcdc;
+        border-radius: 5px;
+        padding: 10px;
+        height: 250px;
+        background-color: #f9f9f9;
+        overflow-y: auto;
+        position: relative;
+    }
+    /* Dark mode adjustments */
+    [data-theme="dark"] .output-container {
+        background-color: #1e1e1e;
+        border-color: #444;
+    }
+    /* Aligning the audio buttons to the bottom right */
+    .audio-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: -45px;
+        margin-right: 10px;
+        position: relative;
+        z-index: 10;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- Load Lottie ----------------
-def load_lottie(url):
-    try:
-        r = requests.get(url)
-        return r.json() if r.status_code == 200 else None
-    except:
-        return None
-
-loading_anim = load_lottie("https://assets2.lottiefiles.com/packages/lf20_jcikwtux.json")
+# ---------------- Helper Functions ----------------
+def play_voice(text, lang, filename):
+    if text.strip():
+        tts = gTTS(text=text, lang=lang, slow=False)
+        tts.save(filename)
+        return filename
+    return None
 
 # ---------------- Translator Setup ----------------
 lang_map = {name.capitalize(): code for name, code in GOOGLE_LANGUAGES_TO_CODES.items()}
 language_names = sorted(lang_map.keys())
 
-# ---------------- Sidebar ----------------
-st.sidebar.header("🎛️ Controls")
-typing_speed = st.sidebar.slider("⌨️ Typing Speed (ms)", 5, 100, 20)
-enable_tts = st.sidebar.checkbox("Enable Text-to-Speech", value=True)
+# ---------------- Header ----------------
+st.markdown("<h1 style='text-align:center;'>🌐 Language Translator</h1>", unsafe_allow_html=True)
 
-# ---------------- Main UI ----------------
-st.markdown("<h1 class='fade-in' style='text-align:center;'>🌐 Language Translator</h1>", unsafe_allow_html=True)
-
+# ---------------- Main Layout ----------------
 col1, col2 = st.columns(2)
+
 with col1:
     st.subheader("Input Text")
-    input_text = st.text_area("", height=200, placeholder="Type text here...", key="input")
+    input_text = st.text_area(" ", height=250, placeholder="Enter text here...", label_visibility="collapsed")
+    
+    # Bottom right button for Input Audio
+    c1, c2 = st.columns([0.8, 0.2])
+    with c2:
+        if st.button("🔊", key="play_input"):
+            audio_file = play_voice(input_text, "en", "input.mp3") # Default to English for input
+            if audio_file:
+                st.audio(audio_file)
 
 with col2:
     st.subheader("Translated Output")
-    output_container = st.container(border=True)
-    output_box = output_container.empty()
-    output_text = st.text_area("", height=200, placeholder="Translated Text.", key="output")
+    # Initialize session state for translation
+    if "translated_text" not in st.session_state:
+        st.session_state.translated_text = ""
 
-# ---------------- Language Selection ----------------
+    # Display Output in a box that matches input height
+    st.markdown(f"""
+        <div class="output-container">
+            {st.session_state.translated_text if st.session_state.translated_text else "<i>Translation will appear here...</i>"}
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Bottom right button for Output Audio
+    c1, c2 = st.columns([0.8, 0.2])
+    with c2:
+        if st.button("🔊", key="play_output"):
+            if st.session_state.translated_text:
+                # Get the code for the selected target language
+                target_lang_code = lang_map.get(st.session_state.get('last_target_lang', 'Spanish'), 'es')
+                audio_file = play_voice(st.session_state.translated_text, target_lang_code, "output.mp3")
+                if audio_file:
+                    st.audio(audio_file)
+
+# ---------------- Controls ----------------
 st.markdown("---")
-c1, c2, c3 = st.columns([2, 2, 1])
-with c1:
+ctrl1, ctrl2, ctrl3 = st.columns([2, 2, 1])
+
+with ctrl1:
     source_language = st.selectbox("From", ["Auto Detect"] + language_names)
-with c2:
+with ctrl2:
     target_language = st.selectbox("To", language_names, index=language_names.index("Spanish"))
-with c3:
-    st.write("##") # Spacer
+with ctrl3:
+    st.write("##")
     translate_btn = st.button("🚀 Translate", use_container_width=True)
 
-# ---------------- Logic ----------------
+# ---------------- Translation Logic ----------------
 if translate_btn:
     if not input_text.strip():
-        st.warning("⚠️ Please enter text to translate.")
+        st.warning("Please enter text.")
     else:
-        try:
-            # Translation
+        with st.spinner("Translating..."):
             src_code = "auto" if source_language == "Auto Detect" else lang_map[source_language]
             targ_code = lang_map[target_language]
             
-            translated_text = GoogleTranslator(source=src_code, target=targ_code).translate(input_text)
-
-            # Typing Effect
-            displayed = ""
-            for char in translated_text:
-                displayed += char
-                output_box.markdown(f"<div class='slide-up'>{displayed}</div>", unsafe_allow_html=True)
-                time.sleep(typing_speed / 1000)
-
-            # Text to Speech Logic
-            if enable_tts:
-                with st.spinner("Generating Voice..."):
-                    tts = gTTS(text=translated_text, lang=targ_code, slow=False)
-                    # Use a unique filename or overwrite
-                    tts.save("speech.mp3")
-                    st.audio("speech.mp3", format="audio/mp3")
-            
-            st.success("✅ Done!")
-
-        except Exception as e:
-            st.error(f"Error: {e}")
+            translated = GoogleTranslator(source=src_code, target=targ_code).translate(input_text)
+            st.session_state.translated_text = translated
+            st.session_state.last_target_lang = target_language
+            st.rerun()
