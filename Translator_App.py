@@ -18,7 +18,7 @@ st.markdown("""
         border-radius: 10px !important;
     }
     .output-box {
-        height: 350px;
+        height: 250px;
         border: 1px solid #ccc;
         border-radius: 10px;
         padding: 15px;
