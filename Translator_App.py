@@ -164,4 +164,11 @@ with st.container():
             new_entry = {
                 "time": datetime.now().strftime("%H:%M:%S"),
                 "src": src_lang,
-                "
+                "targ": target_lang,
+                "input": input_text,
+                "output": result
+            }
+            st.session_state.history.append(new_entry)
+            st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
