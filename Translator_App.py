@@ -5,85 +5,27 @@ from gtts import gTTS
 from deep_translator import GoogleTranslator
 from deep_translator.constants import GOOGLE_LANGUAGES_TO_CODES
 from streamlit_lottie import st_lottie
+from datetime import datetime
 
-# ---------------- Page Config & Theme ----------------
+# ---------------- Page Config ----------------
 st.set_page_config(page_title="LingoFlow AI", page_icon="🌐", layout="wide")
 
-# Function to load Lottie animations
-def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
-
-lottie_translate = load_lottieurl("https://lottie.host/79075778-9585-4428-9730-68131349580b/GvXIn9P7vH.json")
-
-# ---------------- Custom CSS: Glassmorphism & Animations ----------------
-st.markdown("""
-<style>
-    /* Main Background */
-    .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-
-    /* Glassmorphism Card */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 2rem;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        margin-bottom: 20px;
-    }
-
-    /* Styled Text Areas */
-    .stTextArea textarea {
-        background: rgba(255, 255, 255, 0.05) !important;
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 15px !important;
-        font-size: 1.1rem !important;
-    }
-
-    /* Translation Box Display */
-    .output-box {
-        min-height: 250px;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 15px;
-        padding: 20px;
-        color: #e0e0e0;
-        border: 1px dashed rgba(255,255,255,0.3);
-        font-size: 1.1rem;
-    }
-
-    /* Custom Buttons */
-    .stButton>button {
-        width: 100%;
-        border-radius: 12px !important;
-        height: 3em !important;
-        background-color: #ffffff22 !important;
-        color: white !important;
-        border: 1px solid white !important;
-        transition: 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #ffffff44 !important;
-        transform: translateY(-2px);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- Logic & State ----------------
-lang_map = {name.capitalize(): code for name, code in GOOGLE_LANGUAGES_TO_CODES.items()}
-language_names = sorted(lang_map.keys())
-
+# ---------------- Session State Initialization ----------------
+if 'history' not in st.session_state:
+    st.session_state.history = []
 if 'translated_text' not in st.session_state:
     st.session_state.translated_text = ""
 if 'src_lang' not in st.session_state:
     st.session_state.src_lang = "Auto Detect"
 if 'targ_lang' not in st.session_state:
     st.session_state.targ_lang = "Spanish"
+if 'input_val' not in st.session_state:
+    st.session_state.input_val = ""
+
+# ---------------- Helper Functions ----------------
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    return r.json() if r.status_code == 200 else None
 
 def swap_languages():
     if st.session_state.src_lang != "Auto Detect":
@@ -101,62 +43,125 @@ def autoplay_audio(text, lang):
                 b64 = base64.b64encode(data).decode()
                 md = f'<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
                 st.markdown(md, unsafe_allow_html=True)
-        except:
-            st.error("Audio generation failed for this language.")
+        except Exception:
+            st.error("Audio unavailable for this language.")
 
-# ---------------- UI Layout ----------------
-st.markdown("<h1 style='text-align: center; color: white; margin-bottom: 0;'>✨ LingoFlow AI</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #ddd;'>Next-Gen Neural Translation</p>", unsafe_allow_html=True)
+# ---------------- Custom CSS ----------------
+st.markdown("""
+<style>
+    .stApp { background: linear-gradient(135deg, #1e1e2f 0%, #2d3436 100%); color: white; }
+    
+    /* Glassmorphism Card */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
 
-# Animation Header
-c1, c2, c3 = st.columns([1, 2, 1])
-with c2:
-    st_lottie(lottie_translate, height=150, key="main_anim")
+    /* History Sidebar Item */
+    .history-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-left: 4px solid #6c5ce7;
+    }
+    
+    .stTextArea textarea {
+        background: rgba(0, 0, 0, 0.2) !important;
+        color: #fff !important;
+        border-radius: 15px !important;
+    }
 
-# Main Interface Card
+    .output-box {
+        min-height: 250px;
+        background: rgba(108, 92, 231, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        border: 1px solid rgba(108, 92, 231, 0.3);
+        margin-bottom: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- Sidebar: History ----------------
+with st.sidebar:
+    st.title("📜 Translation History")
+    if st.button("🗑️ Clear History"):
+        st.session_state.history = []
+        st.rerun()
+    
+    st.markdown("---")
+    
+    if not st.session_state.history:
+        st.info("No recent translations.")
+    else:
+        for idx, item in enumerate(reversed(st.session_state.history)):
+            with st.container():
+                st.markdown(f"""
+                <div class="history-item">
+                    <small style='color: #a29bfe;'>{item['time']}</small><br>
+                    <b>{item['src']} → {item['targ']}</b><br>
+                    <div style='font-size: 0.85rem; opacity: 0.8;'>{item['input'][:50]}...</div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button(f"Restore ##{len(st.session_state.history)-idx}", key=f"rest_{idx}"):
+                    st.session_state.input_val = item['input']
+                    st.session_state.translated_text = item['output']
+                    st.session_state.src_lang = item['src']
+                    st.session_state.targ_lang = item['targ']
+                    st.rerun()
+
+# ---------------- Main UI ----------------
+lang_map = {name.capitalize(): code for name, code in GOOGLE_LANGUAGES_TO_CODES.items()}
+language_names = sorted(lang_map.keys())
+
+st.markdown("<h1 style='text-align: center;'>🌐 LingoFlow AI</h1>", unsafe_allow_html=True)
+
+# Layout Container
 with st.container():
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     
-    # Language Selection Row
-    l_col1, l_mid, l_col2 = st.columns([4, 1, 4])
-    with l_col1:
+    # Controls
+    col_a, col_b, col_c = st.columns([4, 1, 4])
+    with col_a:
         src_lang = st.selectbox("From", ["Auto Detect"] + language_names, key="src_lang")
-    with l_mid:
+    with col_b:
         st.write("##")
-        st.button("🔄", on_click=swap_languages, help="Swap Languages")
-    with l_col2:
-        targ_lang = st.selectbox("To", language_names, key="targ_lang")
+        st.button("🔄", on_click=swap_languages)
+    with col_c:
+        target_lang = st.selectbox("To", language_names, key="targ_lang")
 
-    # Text Input/Output Row
+    # Input/Output
     t_col1, t_col2 = st.columns(2)
     with t_col1:
-        input_text = st.text_area("Input Text", height=250, placeholder="Start typing here...", label_visibility="collapsed")
-        if st.button("🔊 Listen", key="listen_in"):
+        input_text = st.text_area("Source Text", value=st.session_state.input_val, height=250, placeholder="Type to translate...", label_visibility="collapsed")
+        if st.button("🔊 Listen"):
             autoplay_audio(input_text, "en")
             
     with t_col2:
-        st.markdown(f'<div class="output-box">{st.session_state.translated_text if st.session_state.translated_text else "Translation appears here..."}</div>', unsafe_allow_html=True)
-        out_btn_col1, out_btn_col2 = st.columns(2)
-        with out_btn_col1:
-            if st.button("🔊 Pronounce", key="listen_out"):
-                t_code = lang_map.get(st.session_state.targ_lang, 'es')
-                autoplay_audio(st.session_state.translated_text, t_code)
-        with out_btn_col2:
-            if st.button("📋 Copy", key="copy_btn"):
-                st.toast("Text copied to clipboard! (Simulated)")
+        st.markdown(f'<div class="output-box">{st.session_state.translated_text if st.session_state.translated_text else "<i style=\'color:gray\'>Translation will appear here...</i>"}</div>', unsafe_allow_html=True)
+        if st.button("🔊 Pronounce"):
+            t_code = lang_map.get(st.session_state.targ_lang, 'es')
+            autoplay_audio(st.session_state.translated_text, t_code)
 
-    # Action Row
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀 Translate Now", type="primary"):
-        if input_text:
-            with st.spinner("Analyzing context..."):
-                src = "auto" if src_lang == "Auto Detect" else lang_map[src_lang]
-                targ = lang_map[targ_lang]
-                translation = GoogleTranslator(source=src, target=targ).translate(input_text)
-                st.session_state.translated_text = translation
-                st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ---------------- Footer ----------------
-st.markdown("<p style='text-align: center; color: rgba(255,255,255,0.5);'>Powered by Google Neural Machine Translation</p>", unsafe_allow_html=True)
+    # Translate Button Logic
+    if st.button("🚀 Translate Now", use_container_width=True, type="primary"):
+        if input_text.strip():
+            src_code = "auto" if src_lang == "Auto Detect" else lang_map[src_lang]
+            targ_code = lang_map[target_lang]
+            
+            result = GoogleTranslator(source=src_code, target=targ_code).translate(input_text)
+            
+            # Update States
+            st.session_state.translated_text = result
+            st.session_state.input_val = input_text
+            
+            # Add to History
+            new_entry = {
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "src": src_lang,
+                "
