@@ -15,10 +15,45 @@ st.set_page_config(page_title="Language Translator", layout="wide", page_icon="�
 # ---------------- CSS Animations ----------------
 st.markdown("""
 <style>
-    /* Global Fade In for App Opening */
+    /* Background Image - Room with Plants */
     .stApp {
+        background-image: url("https://images.unsplash.com/photo-1497215728101-856f4ea42174?ixlib=rb-4.0.3&auto=format&fit=crop&w=1950&q=80");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
         animation: fadeIn 0.8s ease-in-out;
     }
+
+    /* Transparent Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(3px);
+        border-right: 2px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    /* Sidebar Text Color */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #111 !important;
+        text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    }
+
+    /* Translucent Input/Output Boxes */
+    .stTextArea textarea {
+        background-color: rgba(255, 255, 255, 0.6) !important;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.4) !important;
+        color: #000 !important;
+        font-weight: 500;
+    }
+    
+    /* General Text Visibility */
+    h1, h2, h3, p, label, .stMarkdown {
+        color: #111;
+        text-shadow: 0 0 10px rgba(255,255,255,0.8);
+    }
+
+    /* Global Fade In Animation */
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -40,6 +75,14 @@ st.markdown("""
     div.stButton > button:first-child:hover {
         transform: scale(1.05);
         box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    /* Clear Button Style in Sidebar */
+    section[data-testid="stSidebar"] .stButton button {
+        background-color: transparent;
+        border: 1px solid #333;
+        color: #111;
+        transition: all 0.3s ease;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -69,7 +112,7 @@ st.markdown("<h1 style='text-align:center;'>🌐 Language Translator</h1>", unsa
 # ---------------- Sidebar Controls ----------------
 # ---------------- History ----------------
 st.sidebar.subheader("📜 History")
-if st.sidebar.button("Clear History"):
+if st.sidebar.button("Clear"):
     st.session_state.history = []
 
 for i, item in enumerate(reversed(st.session_state.history)):
